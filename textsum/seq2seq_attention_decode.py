@@ -21,13 +21,17 @@ import time
 import tensorflow as tf
 import beam_search
 import data
+from tensorflow.contrib.session_bundle import exporter
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('max_decode_steps', 1000000,
                             'Number of decoding steps.')
-tf.app.flags.DEFINE_integer('decode_batches_per_ckpt', 8000,
+tf.app.flags.DEFINE_integer('decode_batches_per_ckpt', 1,
                             'Number of batches to decode before restoring next '
                             'checkpoint')
+tf.app.flags.DEFINE_string("export_dir", "exports/textsum",
+                           "Directory where to export textsum model.")
+
 
 DECODE_LOOP_DELAY_SECS = 60
 DECODE_IO_FLUSH_INTERVAL = 100
@@ -122,6 +126,7 @@ class BSDecoder(object):
     tf.logging.info('renamed checkpoint path %s', ckpt_path)
     saver.restore(sess, ckpt_path)
 
+    global_step = ckpt_state.model_checkpoint_path.split('/')[-1].split('-')[-1]
     self._decode_io.ResetFiles()
     for _ in xrange(FLAGS.decode_batches_per_ckpt):
       (article_batch, _, _, article_lens, _, _, origin_articles,
@@ -137,10 +142,45 @@ class BSDecoder(object):
         article_batch_cp[:] = article_batch[i:i+1]
         article_lens_cp = article_lens.copy()
         article_lens_cp[:] = article_lens[i:i+1]
+
+        #import ipdb; ipdb.set_trace()
+        #import os; os._exit()
+
         best_beam = bs.BeamSearch(sess, article_batch_cp, article_lens_cp)[0]
         decode_output = [int(t) for t in best_beam.tokens[1:]]
+
+        print(type(origin_abstracts[i]))
         self._DecodeBatch(
             origin_articles[i], origin_abstracts[i], decode_output)
+    
+        #Export Model
+        print('Exporting trained model to %s' % FLAGS.export_dir)
+        serialized_tf_example = tf.placeholder(tf.string, name='tf_example')
+        feature_configs = {
+            'article': tf.FixedLenFeature(shape=[], dtype=tf.string),
+            'abstract': tf.FixedLenFeature(shape=[], dtype=tf.string) #,'headline': tf.FixedLenFeature(shape=[], dtype=tf.string)
+        }
+        tf_example = tf.parse_example(serialized_tf_example, feature_configs)
+        #art = tf_example[]
+        
+        init_op = tf.group(tf.initialize_all_tables(), name='init_op')
+        art = tf.Variable(origin_articles[i], name='article')
+        abst = tf.Variable(origin_abstracts[i], name='abstract')
+        headl = tf.Variable(decode_output, name='headline')
+        model_exporter = exporter.Exporter(saver)
+
+        named_graph_signature = {
+            'inputs': exporter.generic_signature({'article': art, 'abstract': abst}),
+            'outputs': exporter.generic_signature({'headline': headl})}
+
+        model_exporter.init(
+            init_op=init_op,
+            #default_graph_signature=serialized_tf_example,
+            named_graph_signatures=named_graph_signature)
+
+        model_exporter.export(FLAGS.export_dir, tf.constant(global_step), sess)
+        print('Successfully exported model to %s' % FLAGS.export_dir)
+
     return True
 
   def _DecodeBatch(self, article, abstract, output_ids):
