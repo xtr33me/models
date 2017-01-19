@@ -94,3 +94,9 @@ ENV/
 /textsum/solrDataTrain
 /textsum/solrDataTrainBinary
 /exports/textsum/
+
+/bazel-bin
+/bazel-genfiles
+/bazel-out
+/bazel-testlogs
+/bazel-tf_models

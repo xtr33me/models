@@ -149,37 +149,37 @@ class BSDecoder(object):
         best_beam = bs.BeamSearch(sess, article_batch_cp, article_lens_cp)[0]
         decode_output = [int(t) for t in best_beam.tokens[1:]]
 
-        print(type(origin_abstracts[i]))
+        #print(type(origin_abstracts[i]))
         self._DecodeBatch(
             origin_articles[i], origin_abstracts[i], decode_output)
     
         #Export Model
-        print('Exporting trained model to %s' % FLAGS.export_dir)
-        serialized_tf_example = tf.placeholder(tf.string, name='tf_example')
-        feature_configs = {
-            'article': tf.FixedLenFeature(shape=[], dtype=tf.string),
-            'abstract': tf.FixedLenFeature(shape=[], dtype=tf.string) #,'headline': tf.FixedLenFeature(shape=[], dtype=tf.string)
-        }
-        tf_example = tf.parse_example(serialized_tf_example, feature_configs)
+        #print('Exporting trained model to %s' % FLAGS.export_dir)
+        #serialized_tf_example = tf.placeholder(tf.string, name='tf_example')
+        #feature_configs = {
+        #    'article': tf.FixedLenFeature(shape=[], dtype=tf.string),
+        #    'abstract': tf.FixedLenFeature(shape=[], dtype=tf.string) #,'headline': tf.FixedLenFeature(shape=[], dtype=tf.string)
+        #}
+        #tf_example = tf.parse_example(serialized_tf_example, feature_configs)
         #art = tf_example[]
         
-        init_op = tf.group(tf.initialize_all_tables(), name='init_op')
-        art = tf.Variable(origin_articles[i], name='article')
-        abst = tf.Variable(origin_abstracts[i], name='abstract')
-        headl = tf.Variable(decode_output, name='headline')
-        model_exporter = exporter.Exporter(saver)
+        #init_op = tf.group(tf.initialize_all_tables(), name='init_op')
+        #art = tf.Variable(origin_articles[i], name='article')
+        #abst = tf.Variable(origin_abstracts[i], name='abstract')
+        #headl = tf.Variable(decode_output, name='headline')
+        #model_exporter = exporter.Exporter(saver)
 
-        named_graph_signature = {
-            'inputs': exporter.generic_signature({'article': art, 'abstract': abst}),
-            'outputs': exporter.generic_signature({'headline': headl})}
+        #named_graph_signature = {
+        #    'inputs': exporter.generic_signature({'article': art, 'abstract': abst}),
+        #    'outputs': exporter.generic_signature({'headline': headl})}
 
-        model_exporter.init(
-            init_op=init_op,
+        #model_exporter.init(
+        #    init_op=init_op,
             #default_graph_signature=serialized_tf_example,
-            named_graph_signatures=named_graph_signature)
+        #    named_graph_signatures=named_graph_signature)
 
-        model_exporter.export(FLAGS.export_dir, tf.constant(global_step), sess)
-        print('Successfully exported model to %s' % FLAGS.export_dir)
+        #model_exporter.export(FLAGS.export_dir, tf.constant(global_step), sess)
+        #print('Successfully exported model to %s' % FLAGS.export_dir)
 
     return True
 
