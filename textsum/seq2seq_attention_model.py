@@ -237,7 +237,7 @@ class Seq2SeqAttentionModel(object):
           self._loss = seq2seq_lib.sampled_sequence_loss(
               decoder_outputs, targets, loss_weights, sampled_loss_func)
         else:
-          self._loss = tf.contrib.seq2seq.sequence_loss(
+          self._loss = tf.contrib.legacy_seq2seq.sequence_loss(
               model_outputs, targets, loss_weights)
         tf.summary.scalar('loss', tf.minimum(12.0, self._loss))
 
