@@ -62,3 +62,15 @@ py_library(
     name = "data",
     srcs = ["data.py"],
 )
+
+py_binary(
+    name = "textsum_client",
+    srcs = [
+        "textsum_client.py",
+    ],
+    deps = [
+        "//tensorflow_serving/apis:predict_proto_py_pb2",
+        "//tensorflow_serving/apis:prediction_service_proto_py_pb2",
+        "@org_tensorflow//tensorflow:tensorflow_py",
+    ],
+)
