@@ -18,9 +18,9 @@
 from collections import namedtuple
 
 import numpy as np
-import tensorflow as tf
 import seq2seq_lib
-
+from six.moves import xrange
+import tensorflow as tf
 
 HParams = namedtuple('HParams',
                      'mode, min_lr, lr, batch_size, '
@@ -138,7 +138,6 @@ class Seq2SeqAttentionModel(object):
     hps = self._hps
     vsize = self._vocab.NumIds()
 
-    #Updated below tf.unpack calls to newer TF 1.0 unstack calls
     with tf.variable_scope('seq2seq'):
       encoder_inputs = tf.unstack(tf.transpose(self._articles))
       decoder_inputs = tf.unstack(tf.transpose(self._abstracts))
@@ -155,7 +154,7 @@ class Seq2SeqAttentionModel(object):
                               for x in encoder_inputs]
         emb_decoder_inputs = [tf.nn.embedding_lookup(embedding, x)
                               for x in decoder_inputs]
-      #Updated below entries for LSTMCell to point to newer tf.contrib.rnn.LSTMCell location
+
       for layer_i in xrange(hps.enc_layers):
         with tf.variable_scope('encoder%d'%layer_i), tf.device(
             self._next_device()):
@@ -167,8 +166,6 @@ class Seq2SeqAttentionModel(object):
               hps.num_hidden,
               initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=113),
               state_is_tuple=False)
-          #Updated below from tf.nn.bidirectional_rnn to tf.contrib.rnn.static_bidirectional_rnn
-          #to align with newer TF 1.0 version
           (emb_encoder_inputs, fw_state, _) = tf.contrib.rnn.static_bidirectional_rnn(
               cell_fw, cell_bw, emb_encoder_inputs, dtype=tf.float32,
               sequence_length=article_lens)
@@ -228,10 +225,11 @@ class Seq2SeqAttentionModel(object):
 
       with tf.variable_scope('loss'), tf.device(self._next_device()):
         def sampled_loss_func(inputs, labels):
-          with tf.device('/gpu:0'):  # Try gpu.
+          with tf.device('/cpu:0'):  # Try gpu.
             labels = tf.reshape(labels, [-1, 1])
-            return tf.nn.sampled_softmax_loss(w_t, v, labels, inputs,
-                                              hps.num_softmax_samples, vsize)
+            return tf.nn.sampled_softmax_loss(
+                weights=w_t, biases=v, labels=labels, inputs=inputs,
+                num_sampled=hps.num_softmax_samples, num_classes=vsize)
 
         if hps.num_softmax_samples != 0 and hps.mode == 'train':
           self._loss = seq2seq_lib.sampled_sequence_loss(

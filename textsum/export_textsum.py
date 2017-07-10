@@ -9,7 +9,7 @@ import sys, traceback
 import tensorflow as tf
 import batch_reader
 import data
-from tensorflow.contrib.session_bundle import exporter
+from tensorflow.python.saved_model import builder as saved_model_builder
 import seq2seq_attention_decode
 import seq2seq_attention_model
 
@@ -94,7 +94,7 @@ def Export():
             }
             tf_example = tf.parse_example(serialized_tf_example, feature_configs)
             #model.build_graph()
-            saver = tf.train.Saver(sharded=True)
+            #saver = tf.train.Saver(sharded=True)
             with tf.Session() as sess:
                 
                 # Restore variables from training checkpoints.
@@ -110,27 +110,33 @@ def Export():
 
                 # Export model
                 print('Exporting trained model to %s' % FLAGS.export_dir)
-                init_op = tf.group(tf.initialize_all_tables(), name='init_op')
-                model_exporter = exporter.Exporter(saver)
 
-                classification_signature = exporter.classification_signature(
-                    input_tensor=serialized_tf_example,
-                    classes_tensor=classes,
-                    scores_tensor=values)
-                    
-                named_graph_signature = {
-                    'inputs': exporter.generic_signature({'images': jpegs}),
-                    'outputs': exporter.generic_signature({
-                        'classes': classes,
-                        'scores': values
-                    })}
 
-                model_exporter.init(
-                    init_op=init_op,
-                    default_graph_signature=classification_signature,
-                    named_graph_signatures=named_graph_signature)
+                #-------------------------------------------
 
-                model_exporter.export(FLAGS.export_dir, tf.constant(global_step), sess)
+                tensor_info_x = tf.saved_model.utils.build_tensor_info(serialized_tf_example)
+                tensor_info_y = tf.saved_model.utils.build_tensor_info(decoder)
+
+                prediction_signature = (
+                    tf.saved_model.signature_def_utils.build_signature_def(
+                        inputs={'images': tensor_info_x},
+                        outputs={'scores': tensor_info_y},
+                        method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+
+                #----------------------------------
+
+                legacy_init_op = tf.group(tf.tables_initializer(), name='legacy_init_op')
+                builder = saved_model_builder.SavedModelBuilder(FLAGS.export_dir)
+
+                builder.add_meta_graph_and_variables(
+                    sess, [tag_constants.SERVING],
+                    signature_def_map={
+                        'predict_headline':
+                            prediction_signature,
+                    },
+                    legacy_init_op=legacy_init_op)
+                builder.save()
+
                 print('Successfully exported model to %s' % FLAGS.export_dir)
     except:
         traceback.print_exc()
