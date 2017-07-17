@@ -13,8 +13,8 @@ from tensorflow.python.saved_model import builder as saved_model_builder
 import seq2seq_attention_decode
 import seq2seq_attention_model
 
-tf.app.flags.DEFINE_string("export_dir", "exports/textsum",
-                           "Directory where to export textsum model.")
+#tf.app.flags.DEFINE_string('export_dir', '/exports/textsum',
+#                           'Directory where to export textsum model.')
 
 tf.app.flags.DEFINE_string('checkpoint_dir', 'log_root',
                             "Directory where to read training checkpoints.")
@@ -28,7 +28,7 @@ tf.app.flags.DEFINE_string('data_path',
                            '/media/daniel/Data/dataForTraining/srcArticlesTrainBinary/data-*', 'Path expression to tf.Example.')
 tf.app.flags.DEFINE_string('article_key', 'article',
                            'tf.Example feature key for article.')
-tf.app.flags.DEFINE_string('abstract_key', 'headline',
+tf.app.flags.DEFINE_string('abstract_key', 'abstract',
                            'tf.Example feature key for abstract.')
 tf.app.flags.DEFINE_integer('max_article_sentences', 2,
                             'Max number of first sentences to use from the '
@@ -56,7 +56,7 @@ def Export():
             assert vocab.WordToId(data.SENTENCE_START) > 0
             assert vocab.WordToId(data.SENTENCE_END) > 0
 
-            batch_size = 8
+            batch_size = 4
 
             hps = seq2seq_attention_model.HParams(
                 mode='decode', #FLAGS.mode,  # train, eval, decode
@@ -86,6 +86,9 @@ def Export():
             model = seq2seq_attention_model.Seq2SeqAttentionModel(
                 decode_mdl_hps, vocab, num_gpus=FLAGS.num_gpus)
             decoder = seq2seq_attention_decode.BSDecoder(model, batcher, hps, vocab)
+            serialized_output = tf.placeholder(tf.string, name='tf_output')
+            #dec_result = decoder._DecodeBatch(
+            #    origin_articles[i], origin_abstracts[i], decode_output)
             #decoder.DecodeLoop()
 
             serialized_tf_example = tf.placeholder(tf.string, name='tf_example')
@@ -94,8 +97,12 @@ def Export():
             }
             tf_example = tf.parse_example(serialized_tf_example, feature_configs)
             #model.build_graph()
-            #saver = tf.train.Saver(sharded=True)
-            with tf.Session() as sess:
+            saver = tf.train.Saver()#sharded=True)
+
+            config = tf.ConfigProto(allow_soft_placement = True)
+            #sess = tf.Session(config = config)
+
+            with tf.Session(config = config) as sess:
                 
                 # Restore variables from training checkpoints.
                 ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
@@ -115,13 +122,14 @@ def Export():
                 #-------------------------------------------
 
                 tensor_info_x = tf.saved_model.utils.build_tensor_info(serialized_tf_example)
-                tensor_info_y = tf.saved_model.utils.build_tensor_info(decoder)
+                tensor_info_y = tf.saved_model.utils.build_tensor_info(serialized_output)
 
                 prediction_signature = (
                     tf.saved_model.signature_def_utils.build_signature_def(
                         inputs={'images': tensor_info_x},
                         outputs={'scores': tensor_info_y},
-                        method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+                        #method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME
+                        ))
 
                 #----------------------------------
 
@@ -129,10 +137,10 @@ def Export():
                 builder = saved_model_builder.SavedModelBuilder(FLAGS.export_dir)
 
                 builder.add_meta_graph_and_variables(
-                    sess, [tag_constants.SERVING],
+                    sess=sess, 
+                    tags=[tf.saved_model.tag_constants.SERVING],
                     signature_def_map={
-                        'predict_headline':
-                            prediction_signature,
+                        'predict':prediction_signature,
                     },
                     legacy_init_op=legacy_init_op)
                 builder.save()
