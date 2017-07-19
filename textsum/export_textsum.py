@@ -9,11 +9,12 @@ import sys, traceback
 import tensorflow as tf
 import batch_reader
 import data
+import os
 from tensorflow.python.saved_model import builder as saved_model_builder
 import seq2seq_attention_decode
 import seq2seq_attention_model
 
-#tf.app.flags.DEFINE_string('export_dir', '/exports/textsum',
+#tf.app.flags.DEFINE_string('export_dir', 'exports/textsum',
 #                           'Directory where to export textsum model.')
 
 tf.app.flags.DEFINE_string('checkpoint_dir', 'log_root',
@@ -23,9 +24,9 @@ tf.app.flags.DEFINE_bool("use_checkpoint_v2", False,
                      "If true, write v2 checkpoint files.")
 tf.app.flags.DEFINE_integer('random_seed', 111, 'A seed value for randomness.')
 tf.app.flags.DEFINE_string('vocab_path',
-                           '/media/daniel/Data/dataForTraining/vocab', 'Path expression to text vocabulary file.')
+                           'data/vocab', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_string('data_path',
-                           '/media/daniel/Data/dataForTraining/srcArticlesTrainBinary/data-*', 'Path expression to tf.Example.')
+                           'data/data', 'Path expression to tf.Example.')
 tf.app.flags.DEFINE_string('article_key', 'article',
                            'tf.Example feature key for article.')
 tf.app.flags.DEFINE_string('abstract_key', 'abstract',
@@ -116,7 +117,9 @@ def Export():
                     return
 
                 # Export model
-                print('Exporting trained model to %s' % FLAGS.export_dir)
+                #path_for_export = FLAGS.export_dir + '/' + FLAGS.export_version #tf.constant(FLAGS.export_version)
+                export_path = os.path.join(FLAGS.export_dir,str(FLAGS.export_version))
+                print('Exporting trained model to %s' % export_path)
 
 
                 #-------------------------------------------
@@ -128,13 +131,13 @@ def Export():
                     tf.saved_model.signature_def_utils.build_signature_def(
                         inputs={'images': tensor_info_x},
                         outputs={'scores': tensor_info_y},
-                        #method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME
+                        method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME
                         ))
 
                 #----------------------------------
 
                 legacy_init_op = tf.group(tf.tables_initializer(), name='legacy_init_op')
-                builder = saved_model_builder.SavedModelBuilder(FLAGS.export_dir)
+                builder = saved_model_builder.SavedModelBuilder(export_path)
 
                 builder.add_meta_graph_and_variables(
                     sess=sess, 
@@ -145,7 +148,7 @@ def Export():
                     legacy_init_op=legacy_init_op)
                 builder.save()
 
-                print('Successfully exported model to %s' % FLAGS.export_dir)
+                print('Successfully exported model to %s' % export_path)
     except:
         traceback.print_exc()
         pass

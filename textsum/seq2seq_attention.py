@@ -42,7 +42,7 @@ tf.app.flags.DEFINE_string('abstract_key', 'headline',
 tf.app.flags.DEFINE_string('log_root', '', 'Directory for model root.')
 tf.app.flags.DEFINE_string('train_dir', '', 'Directory for train.')
 tf.app.flags.DEFINE_string('eval_dir', '', 'Directory for eval.')
-tf.app.flags.DEFINE_string('decode_dir', '', 'Directory for decode summaries.')
+#tf.app.flags.DEFINE_string('decode_dir', '', 'Directory for decode summaries.')
 tf.app.flags.DEFINE_string('mode', 'train', 'train/eval/decode mode')
 tf.app.flags.DEFINE_integer('max_run_steps', 10000000,
                             'Maximum number of run steps.')

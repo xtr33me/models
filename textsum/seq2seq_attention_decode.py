@@ -165,3 +165,4 @@ class BSDecoder(object):
     tf.logging.info('abstract: %s', abstract)
     tf.logging.info('decoded:  %s', decoded_output)
     self._decode_io.Write(abstract, decoded_output.strip())
+    return decoded_output
